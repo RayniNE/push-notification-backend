@@ -14,6 +14,5 @@ type SubscriberKeys struct {
 }
 
 type PublisherMessage struct {
-	Title   string
-	Message string
+	Message string `json:"message,omitempty"`
 }

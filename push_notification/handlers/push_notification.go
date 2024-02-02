@@ -48,6 +48,9 @@ func (h *PushNotificationHandler) Subscribe(c *gin.Context) {
 }
 
 func (h *PushNotificationHandler) Publish(c *gin.Context) {
+
+	var pubMessage models.PublisherMessage
+
 	if h.Publisher.Subscribers == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "No subscriber to publish",
@@ -55,9 +58,17 @@ func (h *PushNotificationHandler) Publish(c *gin.Context) {
 		return
 	}
 
+	err := c.BindJSON(&pubMessage)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid request body",
+		})
+		return
+	}
+
 	for _, sub := range h.Publisher.Subscribers {
 		// Send Notification
-		resp, err := webpush.SendNotification([]byte("Notification in real time!"), sub, &webpush.Options{
+		resp, err := webpush.SendNotification([]byte(pubMessage.Message), sub, &webpush.Options{
 			Subscriber:      "example@example.com",
 			VAPIDPublicKey:  h.VAPIDPublicKey,
 			VAPIDPrivateKey: h.VAPIDPrivateKey,
