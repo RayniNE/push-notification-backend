@@ -27,6 +27,7 @@ func (s *Server) Init() {
 	r.Use(cors.Default())
 
 	handler := handlers.NewPushNotificationHandler(s.VAPIDPublicKey, s.VAPIDPrivateKey)
+	go handler.SendNotifications()
 
 	r.GET("/publishers", handler.GetPublishers)
 	r.GET("/subscribers", handler.GetSubscribers)

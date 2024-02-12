@@ -15,6 +15,8 @@ type PushNotificationHandler struct {
 	VAPIDPrivateKey string
 }
 
+var queue = make(chan models.SendMessageDTO, 1)
+
 func NewPushNotificationHandler(VAPIDPublicKey, VAPIDPrivateKey string) *PushNotificationHandler {
 	return &PushNotificationHandler{
 		VAPIDPublicKey:  VAPIDPublicKey,
@@ -66,34 +68,17 @@ func (h *PushNotificationHandler) Publish(c *gin.Context) {
 		return
 	}
 
-	for _, sub := range h.Publisher.Subscribers {
-		// Send Notification
-		resp, err := webpush.SendNotification([]byte(pubMessage.Message), sub, &webpush.Options{
-			Subscriber:      "example@example.com",
-			VAPIDPublicKey:  h.VAPIDPublicKey,
-			VAPIDPrivateKey: h.VAPIDPrivateKey,
-			TTL:             30,
-		})
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "An error happened doing the http call: " + err.Error(),
-			})
-			return
+	for index, sub := range h.Publisher.Subscribers {
+		dto := models.SendMessageDTO{
+			Index:        index,
+			Subscription: sub,
+			PubMessage:   pubMessage,
 		}
-
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusCreated {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": fmt.Sprintf("Error sending messages to subscribers, got status_code: %v", resp.StatusCode),
-			})
-			return
-		}
+		queue <- dto
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Message published to all subscribers!",
+		"message": "Messages are being processed!",
 	})
 }
 
@@ -103,4 +88,31 @@ func (h *PushNotificationHandler) GetPublishers(c *gin.Context) {
 
 func (h *PushNotificationHandler) GetSubscribers(c *gin.Context) {
 	c.JSON(http.StatusOK, h.Publisher.Subscribers)
+}
+
+func (h *PushNotificationHandler) SendNotifications() {
+	for sub := range queue {
+		fmt.Printf("Received notification to queue, processing #%v...\n", sub.Index)
+		// Send Notification
+		resp, err := webpush.SendNotification([]byte(sub.PubMessage.Message), sub.Subscription, &webpush.Options{
+			Subscriber:      "example@example.com",
+			VAPIDPublicKey:  h.VAPIDPublicKey,
+			VAPIDPrivateKey: h.VAPIDPrivateKey,
+			TTL:             30,
+		})
+
+		if err != nil {
+			fmt.Printf("An error ocurred sending notification: %v\n", err.Error())
+			return
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusCreated {
+			fmt.Printf("An error ocurred sending notification: %v\n", err.Error())
+			return
+		}
+
+		fmt.Printf("Finished processing notification #%v from queue, freeing queue...\n", sub.Index)
+	}
 }

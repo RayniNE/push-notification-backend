@@ -16,3 +16,9 @@ type SubscriberKeys struct {
 type PublisherMessage struct {
 	Message string `json:"message,omitempty"`
 }
+
+type SendMessageDTO struct {
+	Index        int
+	PubMessage   PublisherMessage
+	Subscription *webpush.Subscription
+}
