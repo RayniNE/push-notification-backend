@@ -15,8 +15,11 @@ type PushNotificationHandler struct {
 	VAPIDPrivateKey string
 }
 
+// queue handles the messages that will be sent. It will handle one request at a time, giving it a semaphore like
+// functionality
 var queue = make(chan models.SendMessageDTO, 1)
 
+// NewPushNotificationHandler created a PushNotificationHandler. It requires a VAPID public and private key.
 func NewPushNotificationHandler(VAPIDPublicKey, VAPIDPrivateKey string) *PushNotificationHandler {
 	return &PushNotificationHandler{
 		VAPIDPublicKey:  VAPIDPublicKey,
@@ -29,6 +32,7 @@ func NewPushNotificationHandler(VAPIDPublicKey, VAPIDPrivateKey string) *PushNot
 	}
 }
 
+// Subscribe adds a webpush subscription to the publisher. It returns a 200 Status Code.
 func (h *PushNotificationHandler) Subscribe(c *gin.Context) {
 	var sub *webpush.Subscription
 
@@ -49,6 +53,7 @@ func (h *PushNotificationHandler) Subscribe(c *gin.Context) {
 	})
 }
 
+// Publish iterates over all the subscribers and it sends it to the queue. It returns a 200 Status Code.
 func (h *PushNotificationHandler) Publish(c *gin.Context) {
 
 	var pubMessage models.PublisherMessage
@@ -82,14 +87,17 @@ func (h *PushNotificationHandler) Publish(c *gin.Context) {
 	})
 }
 
+// GetPublishers returns the current publisher
 func (h *PushNotificationHandler) GetPublishers(c *gin.Context) {
 	c.JSON(http.StatusOK, h.Publisher)
 }
 
+// GetSubscribers return all the subscriber of the publisher
 func (h *PushNotificationHandler) GetSubscribers(c *gin.Context) {
 	c.JSON(http.StatusOK, h.Publisher.Subscribers)
 }
 
+// SendNotifications is a goroutine that iterates over the queue buffered channel and sends the corresponding notification.
 func (h *PushNotificationHandler) SendNotifications() {
 	for sub := range queue {
 		fmt.Printf("Received notification to queue, processing #%v...\n", sub.Index)
